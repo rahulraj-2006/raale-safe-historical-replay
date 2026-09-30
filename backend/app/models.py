@@ -4,6 +4,10 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 class Event(Base):
+    """
+    Represents an immutable historical event ingested from legacy healthcare systems
+    (e.g., HL7 ADT, HL7 ORU, FHIR Bundle, Lab V1, Pharmacy).
+    """
     __tablename__ = "events"
 
     id = Column(String, primary_key=True, index=True)
@@ -11,13 +15,13 @@ class Event(Base):
     event_type = Column(String, index=True, nullable=False)
     event_timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     entity_reference = Column(String, index=True, nullable=False)
-    payload = Column(Text, nullable=False)  # JSON string
+    payload = Column(Text, nullable=False)  # JSON or raw HL7 string
     schema_version = Column(String, nullable=False, default="v1.0")
     transformation_version = Column(String, nullable=False, default="v1.2")
     dependency_ids = Column(Text, nullable=True, default="[]")  # JSON list string
     status = Column(String, default="ARCHIVED", index=True)  # ARCHIVED, PENDING_REPLAY, REPLAYED, BLOCKED, FAILED
     
-    # Intentional defect test flags
+    # Intentional defect test flags for benchmark evaluation
     is_malformed = Column(Boolean, default=False)
     has_missing_dependency = Column(Boolean, default=False)
     has_transformation_mismatch = Column(Boolean, default=False)
@@ -26,6 +30,10 @@ class Event(Base):
 
 
 class Transformation(Base):
+    """
+    Catalog of corrected transformation rules used to map legacy schema payloads
+    to modern target FHIR Core schemas.
+    """
     __tablename__ = "transformations"
 
     id = Column(String, primary_key=True, index=True)
@@ -39,6 +47,10 @@ class Transformation(Base):
 
 
 class Dependency(Base):
+    """
+    Sequence and prerequisite dependencies between historical events to ensure
+    out-of-order execution is prevented.
+    """
     __tablename__ = "dependencies"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -49,6 +61,10 @@ class Dependency(Base):
 
 
 class TargetSnapshot(Base):
+    """
+    Current state snapshot of target entities (e.g. Patient, Encounter) used for
+    conflict detection and state hashing before executing safe replay.
+    """
     __tablename__ = "target_snapshots"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -59,6 +75,10 @@ class TargetSnapshot(Base):
 
 
 class MockTarget(Base):
+    """
+    Simulated target database table where safe re-executions mutate target state
+    only after passing all pre-validation and approval gates.
+    """
     __tablename__ = "mock_target"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -70,6 +90,10 @@ class MockTarget(Base):
 
 
 class ReplayRecord(Base):
+    """
+    Tracks replay execution lifecycle, requesting role, approval role sign-off,
+    and timestamp history for dual-control governance.
+    """
     __tablename__ = "replay_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -85,12 +109,16 @@ class ReplayRecord(Base):
 
 
 class AuditLog(Base):
+    """
+    Immutable audit trail capturing all system interactions (authentication, payload
+    validations, dry runs, replay requests, approvals, execution, and blocks).
+    """
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     event_id = Column(String, index=True, nullable=False)
     actor_role = Column(String, nullable=False)
-    action = Column(String, index=True, nullable=False)  # DRY_RUN_STARTED, DRY_RUN_COMPLETED, REPLAY_REQUESTED, REPLAY_APPROVED, REPLAY_REJECTED, REPLAY_BLOCKED, REPLAY_COMPLETED, REPLAY_FAILED
+    action = Column(String, index=True, nullable=False)  # LOGIN_SUCCESS, REPLAY_REQUESTED, REPLAY_APPROVED, REPLAY_BLOCKED, etc.
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     status = Column(String, nullable=False)  # SUCCESS, FAILED, BLOCKED, WARNING
     reason = Column(Text, nullable=True)
@@ -101,6 +129,9 @@ class AuditLog(Base):
 
 
 class ReplayRule(Base):
+    """
+    Configurable safety policies and process guards that control replay behavior.
+    """
     __tablename__ = "replay_rules"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -112,6 +143,10 @@ class ReplayRule(Base):
 
 
 class User(Base):
+    """
+    Registered system user account with password hash and assigned operational role
+    (Integration Engineer, Clinical Lead, System Administrator).
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -125,6 +160,10 @@ class User(Base):
 
 
 class BenchmarkRun(Base):
+    """
+    Persisted results of comparative experiments evaluating RAALE Controlled Replay
+    vs Baseline Direct Replay over sample historical datasets.
+    """
     __tablename__ = "benchmark_runs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -137,6 +176,9 @@ class BenchmarkRun(Base):
 
 
 class PayloadValidationRecord(Base):
+    """
+    Audit record storing results of HL7 ADT, HL7 ORU, and FHIR Bundle validations.
+    """
     __tablename__ = "payload_validation_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -145,4 +187,3 @@ class PayloadValidationRecord(Base):
     validation_status = Column(String, nullable=False)  # VALID, INVALID, INCOMPLETE, SCHEMA_INCOMPATIBLE, TRANSFORMATION_INCOMPATIBLE
     issues_json = Column(Text, nullable=False)  # JSON string list
     validated_at = Column(DateTime, default=datetime.utcnow)
-
