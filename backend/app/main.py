@@ -16,7 +16,9 @@ from app.routers import (
     replay,
     audit,
     experiments,
-    rules
+    rules,
+    auth,
+    payloads
 )
 
 def setup_application_db():
@@ -55,6 +57,8 @@ app.add_middleware(
 )
 
 # Include Routers
+app.include_router(auth.router)
+app.include_router(payloads.router)
 app.include_router(dashboard.router)
 app.include_router(events.router)
 app.include_router(dependencies.router)

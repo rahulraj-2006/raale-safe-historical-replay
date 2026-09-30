@@ -121,15 +121,23 @@ class ExperimentMetrics(BaseModel):
     engine_name: str
     total_events: int
     successful_replays: int
-    duplicate_replays: int
-    unsafe_replays: int
     blocked_events: int
+    duplicate_attempts: int
     dependency_failures: int
+    transformation_failures: int
     snapshot_conflicts: int
-    transformation_errors: int
-    total_processing_time_ms: float
-    avg_processing_time_ms: float
+    malformed_payload_failures: int
+    unsafe_operations: int
+    failure_capture_rate_pct: float
+    data_corruption_risk_pct: float
+    avg_execution_latency_ms: float
+    total_execution_time_ms: float
     error_rate_pct: float
+
+class MetricDefinition(BaseModel):
+    metric_name: str
+    formula: str
+    explanation: str
 
 class ExperimentRunResponse(BaseModel):
     experiment_id: str
@@ -137,6 +145,8 @@ class ExperimentRunResponse(BaseModel):
     baseline: ExperimentMetrics
     safe_replay: ExperimentMetrics
     summary: str
+    metric_definitions: List[MetricDefinition] = []
+
 
 # --- Dashboard Schemas ---
 class DashboardMetrics(BaseModel):

@@ -6,7 +6,34 @@ from app.models import Event, Dependency, TargetSnapshot, MockTarget, ReplayRule
 from app.services.snapshot_manager import SnapshotManager
 
 def seed_database(db: Session, target_count: int = 10000):
-    """Seed SQLite database with 10,000+ synthetic historical events and default rules."""
+    """Seed SQLite database with 10,000+ synthetic historical events, users, and default rules."""
+    
+    # 0. Seed Users for Multi-Role Access Control
+    from app.models import User
+    from app.services.auth_service import hash_password
+
+    users_seed = [
+        {
+            "username": "engineer",
+            "email": "engineer@raale.org",
+            "hashed_password": hash_password("engineer123"),
+            "role": "Integration Engineer",
+            "full_name": "Sarah Jenkins (Integration Eng)"
+        },
+        {
+            "username": "clinical",
+            "email": "clinical@raale.org",
+            "hashed_password": hash_password("clinical123"),
+            "role": "Clinical Lead",
+            "full_name": "Dr. Marcus Vance (Clinical Lead)"
+        }
+    ]
+    for u in users_seed:
+        existing_u = db.query(User).filter(User.username == u["username"]).first()
+        if not existing_u:
+            db.add(User(**u))
+    db.commit()
+
     existing_count = db.query(Event).count()
     if existing_count >= target_count:
         return
@@ -35,6 +62,8 @@ def seed_database(db: Session, target_count: int = 10000):
         {"id": "TRF-LAB-V2", "source_system": "LAB_V1", "target_system": "FHIR_CORE_TARGET", "source_version": "v1.2", "target_version": "v2.0", "rules_json": json.dumps({"map": "legacy_lab_to_fhir_observation"}), "description": "Corrected Lab Result Transformation v2.0", "is_active": True},
         {"id": "TRF-RAD-V2", "source_system": "RADIOLOGY_LEGACY", "target_system": "FHIR_CORE_TARGET", "source_version": "v1.0", "target_version": "v2.0", "rules_json": json.dumps({"map": "legacy_rad_to_fhir_report"}), "description": "Corrected Radiology Report Transformation v2.0", "is_active": True},
         {"id": "TRF-PHARM-V2", "source_system": "PHARMACY_LEGACY", "target_system": "FHIR_CORE_TARGET", "source_version": "v1.1", "target_version": "v2.0", "rules_json": json.dumps({"map": "legacy_pharm_to_fhir_medication"}), "description": "Corrected Pharmacy Medication Transformation v2.0", "is_active": True},
+        {"id": "TRF-HL7-ADT-V2", "source_system": "HIS_EPIC", "target_system": "FHIR_CORE_TARGET", "source_version": "v2.5", "target_version": "v2.0", "rules_json": json.dumps({"map": "hl7_adt_to_fhir_encounter"}), "description": "HL7 ADT to FHIR Encounter Transformation", "is_active": True},
+        {"id": "TRF-FHIR-BND-V2", "source_system": "FHIR_GATEWAY", "target_system": "FHIR_CORE_TARGET", "source_version": "v4.0", "target_version": "v2.0", "rules_json": json.dumps({"map": "fhir_bundle_ingest"}), "description": "FHIR Bundle Ingestion Transformation", "is_active": True},
     ]
     for t in transformations:
         existing = db.query(Transformation).filter(Transformation.id == t["id"]).first()

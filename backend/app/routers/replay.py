@@ -1,8 +1,8 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import ReplayRecord
+from app.models import ReplayRecord, User
 from app.schemas import (
     DryRunRequest, DryRunResult,
     ReplayRequestInput, ApprovalRequestInput, ReplayExecutionInput,
@@ -10,6 +10,8 @@ from app.schemas import (
 )
 from app.services.dry_run_engine import DryRunEngine
 from app.services.replay_engine import ReplayEngine
+from app.services.auth_service import get_current_user
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/events", tags=["Replay Operations"])
 
@@ -17,13 +19,15 @@ router = APIRouter(prefix="/api/events", tags=["Replay Operations"])
 def execute_dry_run(
     event_id: str,
     payload: DryRunRequest = DryRunRequest(),
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    actor = current_user.role if current_user else payload.actor_role
     try:
         res = DryRunEngine.execute_dry_run(
             db=db,
             event_id=event_id,
-            actor_role=payload.actor_role,
+            actor_role=actor,
             target_transformation_version=payload.target_transformation_version
         )
         return DryRunResult(**res)
@@ -37,13 +41,15 @@ def execute_dry_run(
 def request_replay(
     event_id: str,
     payload: ReplayRequestInput = ReplayRequestInput(),
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    actor = current_user.role if current_user else payload.actor_role
     try:
         res = ReplayEngine.request_replay(
             db=db,
             event_id=event_id,
-            actor_role=payload.actor_role,
+            actor_role=actor,
             reason=payload.reason
         )
         return ReplayResponse(**res)
@@ -55,14 +61,32 @@ def request_replay(
 def approve_replay(
     event_id: str,
     payload: ApprovalRequestInput = ApprovalRequestInput(),
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    actor = current_user.role if current_user else payload.actor_role
+
+    # RBAC Enforcement: Only Clinical Lead (or Auditor / Clinical Lead) can approve!
+    if actor not in ["Clinical Lead", "Auditor / Operations Manager", "System Administrator"]:
+        AuditService.log(
+            db=db,
+            event_id=event_id,
+            actor_role=actor,
+            action="AUTHORIZATION_DENIED",
+            status="BLOCKED",
+            reason=f"Role '{actor}' attempted to approve replay for event '{event_id}' without required Clinical Lead permission."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access Denied: Role '{actor}' is not authorized to approve replays. Requires 'Clinical Lead' role."
+        )
+
     try:
         res = ReplayEngine.approve_replay(
             db=db,
             event_id=event_id,
-            actor_role=payload.actor_role,
-            reason=payload.reason or "Approved for safe execution"
+            actor_role=actor,
+            reason=payload.reason or "Approved by Clinical Lead for safe execution"
         )
         return ReplayResponse(**res)
     except ValueError as ve:
@@ -73,14 +97,32 @@ def approve_replay(
 def reject_replay(
     event_id: str,
     payload: ApprovalRequestInput = ApprovalRequestInput(),
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    actor = current_user.role if current_user else payload.actor_role
+
+    # RBAC Enforcement: Only Clinical Lead can reject!
+    if actor not in ["Clinical Lead", "Auditor / Operations Manager", "System Administrator"]:
+        AuditService.log(
+            db=db,
+            event_id=event_id,
+            actor_role=actor,
+            action="AUTHORIZATION_DENIED",
+            status="BLOCKED",
+            reason=f"Role '{actor}' attempted to reject replay for event '{event_id}' without required Clinical Lead permission."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access Denied: Role '{actor}' is not authorized to reject replays. Requires 'Clinical Lead' role."
+        )
+
     try:
         res = ReplayEngine.reject_replay(
             db=db,
             event_id=event_id,
-            actor_role=payload.actor_role,
-            reason=payload.reason or "Rejected by auditor"
+            actor_role=actor,
+            reason=payload.reason or "Rejected by Clinical Lead"
         )
         return ReplayResponse(**res)
     except ValueError as ve:
@@ -91,13 +133,15 @@ def reject_replay(
 def execute_replay(
     event_id: str,
     payload: ReplayExecutionInput = ReplayExecutionInput(),
+    current_user: Optional[User] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    actor = current_user.role if current_user else payload.actor_role
     try:
         res = ReplayEngine.execute_replay(
             db=db,
             event_id=event_id,
-            actor_role=payload.actor_role
+            actor_role=actor
         )
         return ReplayResponse(**res)
     except ValueError as ve:

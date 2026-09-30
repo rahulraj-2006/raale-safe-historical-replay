@@ -109,3 +109,40 @@ class ReplayRule(Base):
     description = Column(Text, nullable=False)
     is_enabled = Column(Boolean, default=True)
     category = Column(String, default="SAFETY")  # SAFETY, VALIDATION, PROCESS
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # Integration Engineer, Clinical Lead, System Administrator
+    full_name = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BenchmarkRun(Base):
+    __tablename__ = "benchmark_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    experiment_id = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    total_events = Column(Integer, nullable=False)
+    baseline_metrics_json = Column(Text, nullable=False)
+    safe_metrics_json = Column(Text, nullable=False)
+    summary = Column(Text, nullable=False)
+
+
+class PayloadValidationRecord(Base):
+    __tablename__ = "payload_validation_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String, index=True, nullable=True)
+    payload_type = Column(String, nullable=False)  # HL7_ADT, HL7_ORU, FHIR_BUNDLE
+    validation_status = Column(String, nullable=False)  # VALID, INVALID, INCOMPLETE, SCHEMA_INCOMPATIBLE, TRANSFORMATION_INCOMPATIBLE
+    issues_json = Column(Text, nullable=False)  # JSON string list
+    validated_at = Column(DateTime, default=datetime.utcnow)
+

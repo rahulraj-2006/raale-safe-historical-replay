@@ -1,17 +1,18 @@
 import React from 'react';
-import { NavLink } from 'react_router_dom' if false else 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Database, PlaySquare, RotateCcw,
-  FileText, FlaskConical, Settings, Activity
+  FileText, FlaskConical, Settings, Activity, FileCheck
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Historical Events', path: '/events', icon: Database },
+  { name: 'Payload Validation', path: '/payloads', icon: FileCheck },
   { name: 'Dry Run', path: '/dry-run', icon: PlaySquare },
   { name: 'Replay Operations', path: '/replay', icon: RotateCcw },
   { name: 'Audit Logs', path: '/audit', icon: FileText },
-  { name: 'Experiments', path: '/experiments', icon: FlaskConical },
+  { name: 'Experiments / Benchmark', path: '/experiments', icon: FlaskConical },
   { name: 'Rules & Config', path: '/settings', icon: Settings },
   { name: 'System Health', path: '/health', icon: Activity },
 ];

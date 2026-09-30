@@ -123,7 +123,7 @@ export const ReplayOperations: React.FC<ReplayOperationsProps> = ({ currentRole 
                     </td>
                     <td className="px-4 py-3.5 text-right font-sans">
                       <div className="flex items-center justify-end space-x-2">
-                        {currentRole === 'Auditor / Operations Manager' && (
+                        {(currentRole === 'Clinical Lead' || currentRole === 'Auditor / Operations Manager') && (
                           <>
                             <button
                               onClick={() => handleApprove(evt.id)}

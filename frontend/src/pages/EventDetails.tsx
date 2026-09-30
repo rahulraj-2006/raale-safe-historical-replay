@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle2, PlaySquare, Send, ShieldCheck,
-  RotateCcw, AlertTriangle, FileCode, Layers, History
+  RotateCcw, AlertTriangle, FileCode, Layers, History, Lock, XCircle
 } from 'lucide-react';
 import {
   fetchEventDetails, checkDependencies, executeDryRun,
-  requestReplay, approveReplay, executeReplay
+  requestReplay, approveReplay, rejectReplay, executeReplay
 } from '../services/api';
 import { EventDetail, UserRole, DependencyCheckResult, DryRunResult } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
@@ -27,6 +27,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
   const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadEventData = async () => {
@@ -48,13 +49,14 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
   const handleCheckDependencies = async () => {
     if (!id) return;
+    setErrorMessage(null);
     try {
       setActionLoading(true);
       const res = await checkDependencies(id, currentRole);
       setDepResult(res);
       setActionMessage(`Dependency Check Completed: ${res.status}`);
     } catch (err: any) {
-      setActionMessage(`Error: ${err.message}`);
+      setErrorMessage(`Error: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -62,13 +64,14 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
   const handleRunDryRun = async () => {
     if (!id) return;
+    setErrorMessage(null);
     try {
       setActionLoading(true);
       const res = await executeDryRun(id, currentRole, 'v2.0');
       setDryRunResult(res);
       setActionMessage(`Dry Run Completed: Risk Level ${res.risk_level}`);
     } catch (err: any) {
-      setActionMessage(`Dry Run Failed: ${err.response?.data?.detail || err.message}`);
+      setErrorMessage(`Dry Run Failed: ${err.response?.data?.detail || err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -76,13 +79,14 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
   const handleRequestReplay = async () => {
     if (!id) return;
+    setErrorMessage(null);
     try {
       setActionLoading(true);
       const res = await requestReplay(id, currentRole, 'Transformation defect v2.0 fix');
       setActionMessage(res.message);
       loadEventData();
     } catch (err: any) {
-      setActionMessage(`Replay Request Error: ${err.message}`);
+      setErrorMessage(`Replay Request Error: ${err.response?.data?.detail || err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -90,13 +94,29 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
   const handleApproveReplay = async () => {
     if (!id) return;
+    setErrorMessage(null);
     try {
       setActionLoading(true);
-      const res = await approveReplay(id, currentRole, 'Auditor approval granted');
+      const res = await approveReplay(id, currentRole, 'Clinical Lead approval granted');
       setActionMessage(res.message);
       loadEventData();
     } catch (err: any) {
-      setActionMessage(`Approval Error: ${err.message}`);
+      setErrorMessage(err.response?.data?.detail || err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectReplay = async () => {
+    if (!id) return;
+    setErrorMessage(null);
+    try {
+      setActionLoading(true);
+      const res = await rejectReplay(id, currentRole, 'Clinical Lead rejected replay');
+      setActionMessage(res.message);
+      loadEventData();
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.detail || err.message);
     } finally {
       setActionLoading(false);
     }
@@ -104,6 +124,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
   const handleExecuteReplayConfirm = async () => {
     if (!id) return;
+    setErrorMessage(null);
     try {
       setActionLoading(true);
       const res = await executeReplay(id, currentRole);
@@ -111,7 +132,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
       setIsModalOpen(false);
       loadEventData();
     } catch (err: any) {
-      setActionMessage(`Replay Execution Blocked: ${err.response?.data?.detail || err.message}`);
+      setErrorMessage(err.response?.data?.detail || err.message);
     } finally {
       setActionLoading(false);
     }
@@ -125,10 +146,12 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
     );
   }
 
+  const isClinicalLead = currentRole === 'Clinical Lead' || currentRole === 'Auditor / Operations Manager';
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header & Back button */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/events')}
@@ -148,7 +171,7 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
         </div>
 
         {/* Workflow Action Bar */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-wrap gap-y-2">
           <button
             onClick={handleCheckDependencies}
             disabled={actionLoading}
@@ -167,32 +190,50 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
             <span>Run Dry Run</span>
           </button>
 
-          {currentRole === 'Integration Engineer' && (
-            <button
-              onClick={handleRequestReplay}
-              disabled={actionLoading || event.status === 'REPLAYED'}
-              className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-xs font-semibold text-cyan-300 transition disabled:opacity-50"
-            >
-              <Send className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Request Replay</span>
-            </button>
-          )}
+          <button
+            onClick={handleRequestReplay}
+            disabled={actionLoading || event.status === 'REPLAYED'}
+            className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-xs font-semibold text-cyan-300 transition disabled:opacity-50"
+          >
+            <Send className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Request Replay</span>
+          </button>
 
-          {currentRole === 'Auditor / Operations Manager' && (
-            <button
-              onClick={handleApproveReplay}
-              disabled={actionLoading || event.status === 'REPLAYED'}
-              className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-xs font-semibold text-amber-300 transition disabled:opacity-50"
+          {/* Role-Enforced Approval Button */}
+          {isClinicalLead ? (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleApproveReplay}
+                disabled={actionLoading || event.status === 'REPLAYED'}
+                className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-semibold text-emerald-300 transition disabled:opacity-50"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Approve</span>
+              </button>
+
+              <button
+                onClick={handleRejectReplay}
+                disabled={actionLoading || event.status === 'REPLAYED'}
+                className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition disabled:opacity-50"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-400" />
+                <span>Reject</span>
+              </button>
+            </div>
+          ) : (
+            <div
+              className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-500 cursor-not-allowed opacity-60"
+              title="Approval requires Clinical Lead role."
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>Approve Replay</span>
-            </button>
+              <Lock className="w-3.5 h-3.5" />
+              <span>Approve (Requires Clinical Lead)</span>
+            </div>
           )}
 
           <button
             onClick={() => setIsModalOpen(true)}
             disabled={actionLoading || event.status === 'REPLAYED'}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition disabled:opacity-50"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Execute Safe Replay</span>
@@ -202,9 +243,20 @@ export const EventDetails: React.FC<EventDetailsProps> = ({ currentRole }) => {
 
       {/* Action Notification Banner */}
       {actionMessage && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-cyan-300 flex items-center justify-between animate-in fade-in duration-150">
+        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-300 flex items-center justify-between">
           <span>{actionMessage}</span>
           <button onClick={() => setActionMessage(null)} className="text-slate-500 hover:text-white">Clear</button>
+        </div>
+      )}
+
+      {/* Authorization Error Alert */}
+      {errorMessage && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3.5 text-xs text-red-300 flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center space-x-2">
+            <Lock className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="text-red-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded bg-red-950/40">Dismiss</button>
         </div>
       )}
 

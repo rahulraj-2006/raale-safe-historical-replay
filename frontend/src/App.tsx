@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Events } from './pages/Events';
 import { EventDetails } from './pages/EventDetails';
+import { PayloadValidation } from './pages/PayloadValidation';
 import { DryRun } from './pages/DryRun';
 import { ReplayOperations } from './pages/ReplayOperations';
 import { AuditLogs } from './pages/AuditLogs';
@@ -35,6 +36,7 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/events" element={<Events />} />
             <Route path="/events/:id" element={<EventDetails currentRole={currentRole} />} />
+            <Route path="/payloads" element={<PayloadValidation />} />
             <Route path="/dry-run" element={<DryRun currentRole={currentRole} />} />
             <Route path="/replay" element={<ReplayOperations currentRole={currentRole} />} />
             <Route path="/audit" element={<AuditLogs />} />

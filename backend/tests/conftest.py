@@ -1,6 +1,14 @@
 import pytest
+from fastapi.testclient import TestClient
+from app.main import app
 from app.database import SessionLocal
 from app.models import Event, ReplayRecord, TargetSnapshot, MockTarget
+
+@pytest.fixture
+def client():
+    """FastAPI TestClient fixture."""
+    with TestClient(app) as c:
+        yield c
 
 @pytest.fixture(autouse=True)
 def reset_demo_event_fixture():

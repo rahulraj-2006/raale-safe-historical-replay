@@ -3,7 +3,8 @@ import {
   DashboardMetrics, EventListResponse, EventDetail,
   DependencyCheckResult, DryRunResult, ReplayResponse,
   AuditLogListResponse, ReplayRule, ExperimentRunResponse,
-  HealthStatus
+  HealthStatus, LoginResponse, AuthUser, PayloadValidationResult,
+  TestCaseSample
 } from '../types';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
@@ -15,6 +16,55 @@ export const api = axios.create({
   },
 });
 
+// Add token to request headers if present
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('raale_access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Authentication APIs
+export const loginUser = async (username: string, password: string): Promise<LoginResponse> => {
+  const res = await api.post<LoginResponse>('/auth/login', { username, password });
+  if (res.data.access_token) {
+    localStorage.setItem('raale_access_token', res.data.access_token);
+  }
+  return res.data;
+};
+
+export const fetchCurrentUser = async (): Promise<AuthUser> => {
+  const res = await api.get<AuthUser>('/auth/me');
+  return res.data;
+};
+
+export const fetchAvailableUsers = async (): Promise<AuthUser[]> => {
+  const res = await api.get<AuthUser[]>('/auth/users');
+  return res.data;
+};
+
+// Healthcare Payload Validation APIs
+export const validatePayloadApi = async (payload: any, payloadType = 'AUTO', eventId?: string): Promise<PayloadValidationResult> => {
+  const res = await api.post<PayloadValidationResult>('/payloads/validate', {
+    payload,
+    payload_type: payloadType,
+    event_id: eventId
+  });
+  return res.data;
+};
+
+export const fetchPayloadTestSuite = async (): Promise<TestCaseSample[]> => {
+  const res = await api.get<TestCaseSample[]>('/payloads/test-suite');
+  return res.data;
+};
+
+export const runFullPayloadTestSuite = async (): Promise<any> => {
+  const res = await api.post('/payloads/test-suite/run-all');
+  return res.data;
+};
+
+// General Core APIs
 export const fetchHealth = async (): Promise<HealthStatus> => {
   const res = await api.get<HealthStatus>('/health');
   return res.data;

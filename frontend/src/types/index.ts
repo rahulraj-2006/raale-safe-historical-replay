@@ -1,12 +1,26 @@
-export type UserRole = 'Integration Engineer' | 'Auditor / Operations Manager';
+export type UserRole = 'Integration Engineer' | 'Clinical Lead' | 'Auditor / Operations Manager';
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+  full_name: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
 
 export interface EventBase {
-  id: str;
+  id: string;
   source_system: string;
   event_type: string;
   event_timestamp: string;
   entity_reference: string;
-  payload: Record<string, any>;
+  payload: Record<string, any> | string;
   schema_version: string;
   transformation_version: string;
   dependency_ids: string[];
@@ -113,18 +127,27 @@ export interface ReplayRule {
   category: string;
 }
 
+export interface MetricDefinition {
+  metric_name: string;
+  formula: string;
+  explanation: string;
+}
+
 export interface ExperimentMetrics {
   engine_name: string;
   total_events: number;
   successful_replays: number;
-  duplicate_replays: number;
-  unsafe_replays: number;
   blocked_events: number;
+  duplicate_attempts: number;
   dependency_failures: number;
+  transformation_failures: number;
   snapshot_conflicts: number;
-  transformation_errors: number;
-  total_processing_time_ms: number;
-  avg_processing_time_ms: number;
+  malformed_payload_failures: number;
+  unsafe_operations: number;
+  failure_capture_rate_pct: number;
+  data_corruption_risk_pct: number;
+  avg_execution_latency_ms: number;
+  total_execution_time_ms: number;
   error_rate_pct: number;
 }
 
@@ -134,6 +157,7 @@ export interface ExperimentRunResponse {
   baseline: ExperimentMetrics;
   safe_replay: ExperimentMetrics;
   summary: string;
+  metric_definitions: MetricDefinition[];
 }
 
 export interface DashboardMetrics {
@@ -158,4 +182,20 @@ export interface HealthStatus {
   database: string;
   synthetic_event_count: number;
   timestamp: string;
+}
+
+export interface PayloadValidationResult {
+  payload_type: string;
+  status: 'VALID' | 'INVALID' | 'INCOMPLETE' | 'SCHEMA_INCOMPATIBLE' | 'TRANSFORMATION_INCOMPATIBLE';
+  issues: string[];
+  details: Record<string, any>;
+}
+
+export interface TestCaseSample {
+  id: string;
+  title: string;
+  payload_type: string;
+  expected_status: string;
+  description: string;
+  payload: any;
 }
